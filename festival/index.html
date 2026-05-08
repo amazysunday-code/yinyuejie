@@ -566,7 +566,7 @@ a{color:inherit;text-decoration:none}
    PRINT / PDF
 ═══════════════════════════════════════════ */
 @media print{
-  @page{size:A4 portrait;margin:16mm 14mm}
+  @page{size:A4 landscape;margin:12mm 14mm}
 
   *{
     -webkit-print-color-adjust:exact!important;
@@ -650,10 +650,21 @@ a{color:inherit;text-decoration:none}
   }
   .tbl{
     min-width:0!important;width:100%!important;
-    font-size:9pt!important;
+    font-size:8.5pt!important;
     table-layout:fixed;
   }
   .tbl colgroup{display:none}
+  /* 列宽分配（横向A4，共9列去掉删除按钮） */
+  .tbl th:nth-child(1){width:7%}   /* 时间 */
+  .tbl th:nth-child(2){width:11%}  /* 艺人/团队 */
+  .tbl th:nth-child(3){width:7%}   /* 类型 */
+  .tbl th:nth-child(4){width:22%}  /* 行程 */
+  .tbl th:nth-child(5){width:8%}   /* 车辆 */
+  .tbl th:nth-child(6){width:8%}   /* 乘车人 */
+  .tbl th:nth-child(7){width:10%}  /* 车牌 */
+  .tbl th:nth-child(8){width:14%}  /* 司机/电话 */
+  .tbl th:nth-child(9){width:13%}  /* 备注 */
+  .tbl th:nth-child(10){width:0;padding:0;border:none!important} /* 删除按钮列隐藏 */
   .tbl th{
     background:#C9A84C!important;
     color:#fff!important;
@@ -668,8 +679,7 @@ a{color:inherit;text-decoration:none}
     padding:5pt 7pt!important;
     border-bottom:0.5pt solid #E8DCC8!important;
     border-right:0.5pt solid #EDE5D5!important;
-    /* Prevent word break within Chinese */
-    word-break:keep-all;
+    word-break:break-all;
     overflow-wrap:break-word;
     vertical-align:top;
     font-size:9pt!important;
@@ -809,10 +819,10 @@ a{color:inherit;text-decoration:none}
       <div class="fg"><label>类型</label><input class="fi" id="et_type" placeholder="接机 / 接站 / 送机"></div>
     </div>
     <div class="fg"><label>艺人 / 团队名称</label><input class="fi" id="et_artist" placeholder="阿梨粤团队"></div>
-    <div class="fg"><label>航班 / 车次</label><input class="fi" id="et_flight" placeholder="MF8123 / G3456"></div>
+    <div class="fg"><label>行程</label><input class="fi" id="et_flight" placeholder="航班/车次 · 出发地 → 目的地"></div>
     <div class="fg-row">
-      <div class="fg"><label>出发地</label><input class="fi" id="et_from" placeholder="南宁机场"></div>
-      <div class="fg"><label>目的地</label><input class="fi" id="et_to" placeholder="星程酒店"></div>
+      <div class="fg"><label>车辆</label><input class="fi" id="et_vehicle" placeholder="车辆"></div>
+      <div class="fg"><label>乘车人</label><input class="fi" id="et_passengers" placeholder="乘车人"></div>
     </div>
     <div class="fg"><label>车牌号</label><input class="fi" id="et_plate" placeholder="桂AFV2396"></div>
     <div class="fg-row">
@@ -1191,7 +1201,7 @@ function openEditTr(dayId, rowId) {
   document.getElementById('et_rowId').value = rowId;
   const f = (id,val) => document.getElementById(id).value = val||'';
   f('et_time',t.time); f('et_type',t.type); f('et_artist',t.artistName);
-  f('et_flight',t.flightTrain); f('et_from',t.pickup); f('et_to',t.dropoff);
+  f('et_flight',t.flightTrain); f('et_vehicle',t.vehicle); f('et_passengers',t.passengers);
   f('et_plate',t.plateNumber); f('et_driver',t.driverName);
   f('et_phone',t.driverPhone); f('et_note',t.remarks);
   showModal('editTrOverlay');
@@ -1205,7 +1215,7 @@ function saveTransferModal() {
   if (!t) return;
   const g = id => document.getElementById(id).value.trim();
   t.time=g('et_time'); t.type=g('et_type')||'接机'; t.artistName=g('et_artist');
-  t.flightTrain=g('et_flight'); t.pickup=g('et_from'); t.dropoff=g('et_to');
+  t.flightTrain=g('et_flight'); t.vehicle=g('et_vehicle'); t.passengers=g('et_passengers');
   t.plateNumber=g('et_plate'); t.driverName=g('et_driver');
   t.driverPhone=g('et_phone'); t.remarks=g('et_note');
   renderAll();
@@ -1272,10 +1282,16 @@ function copyTel(phone) {
 ══════════════════════════════════════════════ */
 function doPrint() {
   collectDesktop();
-  // 把最新标题写入打印专用 DOM 元素
   const ph = document.getElementById('printHeader');
   if (ph) ph.textContent = (DB.title||'活动名称') + ' · ' + (DB.subtitle||'内部调度文件');
-  setTimeout(()=>window.print(), 80);
+  // 手机端提示用浏览器打印
+  const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
+  if (isMobile) {
+    toast('请点击浏览器菜单 → 打印/分享 → 保存为PDF', 'info');
+    setTimeout(()=>window.print(), 600);
+  } else {
+    setTimeout(()=>window.print(), 80);
+  }
 }
 
 /* ══════════════════════════════════════════════
