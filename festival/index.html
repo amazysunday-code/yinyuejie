@@ -888,13 +888,18 @@ function toast(msg, type='ok') {
   setTimeout(()=>{ d.style.transition='opacity 0.3s'; d.style.opacity='0'; setTimeout(()=>d.remove(),320); }, 2800);
 }
 
+let _onlineTimer = null;
 function setSyncState(state, ts) {
   const dot = document.getElementById('syncDot');
   const txt = document.getElementById('syncTxt');
   dot.className = 'sync-dot';
-  if (state === 'ok') {
-    dot.classList.add('');
-    txt.textContent = ts ? '同步于 ' + new Date(ts).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) : '已同步';
+  clearTimeout(_onlineTimer);
+  if (state === 'saved') {
+    txt.textContent = '保存成功';
+    // 3秒后恢复显示"在线"
+    _onlineTimer = setTimeout(() => setSyncState('ok'), 3000);
+  } else if (state === 'ok') {
+    txt.textContent = '在线';
   } else if (state === 'syncing') {
     dot.classList.add('syncing');
     txt.textContent = '同步中…';
@@ -917,13 +922,12 @@ async function loadData(silent=false) {
     DB = d;
     if (!silent || changed) renderAll();
     if (changed && silent) toast('内容已更新', 'info');
-    setSyncState('ok', DB.lastUpdated);
+    setSyncState('ok');
     localStorage.setItem('festivalDB', JSON.stringify(DB));
   } catch(e) {
     const cached = localStorage.getItem('festivalDB');
     if (cached) { DB = JSON.parse(cached); renderAll(); }
     setSyncState('err');
-    if (!silent) toast('服务器连接失败，显示本地缓存', 'err');
   }
   document.getElementById('loadingScreen').classList.add('hide');
   setTimeout(()=>document.getElementById('loadingScreen').style.display='none', 400);
@@ -943,11 +947,10 @@ async function doSave() {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const res = await r.json();
     DB.lastUpdated = res.lastUpdated;
-    setSyncState('ok', DB.lastUpdated);
-    toast('保存成功，已同步', 'ok');
+    setSyncState('saved');
+    toast('保存成功', 'ok');
   } catch(e) {
     setSyncState('err');
-    toast('同步失败，已保存至本地缓存', 'err');
   }
 }
 
@@ -1026,9 +1029,9 @@ function renderTbl(day) {
   <td class="td-time"><span data-f="time" data-d="${day.id}" data-r="${t.id}" data-t="tr" contenteditable="true" spellcheck="false" data-ph="时间">${esc(t.time)}</span></td>
   <td><span data-f="artistName" data-d="${day.id}" data-r="${t.id}" data-t="tr" contenteditable="true" spellcheck="false" data-ph="艺人">${esc(t.artistName)}</span></td>
   <td><span class="td-tag"><span data-f="type" data-d="${day.id}" data-r="${t.id}" data-t="tr" contenteditable="true" spellcheck="false" data-ph="类型">${esc(t.type)}</span></span></td>
-  <td><span data-f="flightTrain" data-d="${day.id}" data-r="${t.id}" data-t="tr" contenteditable="true" spellcheck="false" data-ph="航班">${esc(t.flightTrain)}</span></td>
-  <td><span data-f="pickup" data-d="${day.id}" data-r="${t.id}" data-t="tr" contenteditable="true" spellcheck="false" data-ph="出发地">${esc(t.pickup)}</span></td>
-  <td><span data-f="dropoff" data-d="${day.id}" data-r="${t.id}" data-t="tr" contenteditable="true" spellcheck="false" data-ph="目的地">${esc(t.dropoff)}</span></td>
+  <td><span data-f="flightTrain" data-d="${day.id}" data-r="${t.id}" data-t="tr" contenteditable="true" spellcheck="false" data-ph="航班/车次 · 出发地 → 目的地">${esc(t.flightTrain)}</span></td>
+  <td><span data-f="vehicle" data-d="${day.id}" data-r="${t.id}" data-t="tr" contenteditable="true" spellcheck="false" data-ph="车辆">${esc(t.vehicle)}</span></td>
+  <td><span data-f="passengers" data-d="${day.id}" data-r="${t.id}" data-t="tr" contenteditable="true" spellcheck="false" data-ph="乘车人">${esc(t.passengers)}</span></td>
   <td><span data-f="plateNumber" data-d="${day.id}" data-r="${t.id}" data-t="tr" contenteditable="true" spellcheck="false" data-ph="车牌">${esc(t.plateNumber)}</span></td>
   <td>
     <span data-f="driverName" data-d="${day.id}" data-r="${t.id}" data-t="tr" contenteditable="true" spellcheck="false" data-ph="司机">${esc(t.driverName)}</span><br>
@@ -1042,8 +1045,8 @@ function renderTbl(day) {
 
   return `<div class="tbl-wrap"><table class="tbl">
   <thead><tr>
-    <th>时间</th><th>艺人/团队</th><th>类型</th><th>航班/车次</th>
-    <th>出发地</th><th>目的地</th><th>车牌</th><th>司机/电话</th><th>备注</th><th style="width:30px"></th>
+    <th>时间</th><th>艺人/团队</th><th>类型</th><th>行程</th>
+    <th>车辆</th><th>乘车人</th><th>车牌</th><th>司机/电话</th><th>备注</th><th style="width:30px"></th>
   </tr></thead>
   <tbody>${rows||`<tr><td colspan="10" class="empty">暂无接送记录</td></tr>`}</tbody>
 </table></div>`;
@@ -1285,18 +1288,7 @@ document.addEventListener('keydown', e => {
   }
 });
 
-/* ══════════════════════════════════════════════
-   AUTO REFRESH
-══════════════════════════════════════════════ */
-function startAutoRefresh() {
-  clearInterval(_syncTimer);
-  _syncTimer = setInterval(()=>loadData(true), SYNC_INTERVAL);
-}
-
-// Refresh when tab becomes visible again
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) loadData(true);
-});
+/* AUTO REFRESH disabled — sync only on manual save */
 
 /* ══════════════════════════════════════════════
    MOBILE: Show team edit button
@@ -1314,7 +1306,6 @@ window.addEventListener('resize', applyMobileTeamEditBtns);
 (async ()=>{
   await loadData(false);
   applyMobileTeamEditBtns();
-  startAutoRefresh();
 
   // 标题实时监听：输入即同步 DB + 浏览器标签 + 打印标题
   const titleMain = document.getElementById('titleMain');
